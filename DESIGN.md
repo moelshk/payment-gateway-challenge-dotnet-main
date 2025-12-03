@@ -1,60 +1,32 @@
 # Design Considerations and Assumptions
 
-## Key Design Decisions
+## Design Decisions
 
 ### Architecture
-- **Layered Architecture**: Separated concerns into Controllers, Services, and Repository layers for maintainability and testability
-- **Dependency Injection**: Used ASP.NET Core's built-in DI container for loose coupling
-- **Interface-based Design**: Introduced interfaces (`IPaymentService`, `IBankSimulatorClient`) to enable testing and future extensibility
+- Simple layered structure: Controllers handle HTTP, Services contain business logic, Repository handles storage
+- Used dependency injection for testability
+- Interfaces (`IPaymentService`, `IBankSimulatorClient`) enable mocking in tests
 
-### Validation Strategy
-- **Client-side Validation**: Validation is performed at the API layer before calling the bank simulator, ensuring invalid requests are rejected without making unnecessary external calls
-- **Custom Validation Attributes**: Created `FutureExpiryDateAttribute` and `AllowedCurrenciesAttribute` for reusable validation logic
-- **Currency Limitation**: Limited to 3 ISO currencies (USD, GBP, EUR) as per requirements
+### Validation
+- Validation performed at controller level before calling bank simulator
+- Invalid requests are rejected without calling the bank (as per requirements)
+- Custom validation attributes for expiry date (must be in future) and currency (USD, GBP, EUR only)
 
-### Error Handling
-- **Rejected Status**: When validation fails or bank returns errors (503), payment is marked as "Rejected" and stored with all payment details for audit purposes
-- **Status Differentiation**: Distinguishes between validation failures (no bank call) and bank errors (bank called but failed)
+### Payment Status
+- **Authorized**: Bank authorized payment (card ending in odd digit)
+- **Declined**: Bank declined payment (card ending in even digit)
+- **Rejected**: Invalid information (bank not called) or bank error (503)
 
 ### Storage
-- **In-Memory Repository**: Used `ConcurrentDictionary` for thread-safe in-memory storage as per requirements (no real database needed)
-- **Payment Persistence**: All payments (including rejected ones) are stored to enable retrieval and audit trail
-
-### Payment Status Flow
-- **Authorized**: Bank successfully authorized (card ending in odd digit)
-- **Declined**: Bank declined the payment (card ending in even digit)
-- **Rejected**: Validation failed (bank not called) or bank error occurred (503 Service Unavailable)
+- In-memory `ConcurrentDictionary` for thread-safe storage (as per requirements - no database needed)
+- All payments stored regardless of status for retrieval
 
 ## Assumptions
 
-### Business Logic
-- Payment IDs are generated as GUIDs for uniqueness
-- Only the last 4 digits of card numbers are returned for compliance
-- Expiry date validation checks that the full month/year combination is in the future
-- Amount is always in minor currency units (e.g., cents for USD)
-
-### Bank Simulator Integration
-- Bank simulator is always available at `http://localhost:8080` during development
-- All bank errors (including 503) result in "Rejected" status
-- Bank responses are synchronous - no retry logic implemented
-
-### Currency Support
-- Only 3 currencies are supported initially (USD, GBP, EUR) as per requirements
-- Currency codes are case-insensitive (validated with `.ToUpper()`)
-
-### Validation Rules
-- Card numbers must be exactly 14-19 digits (no spaces or dashes)
-- Expiry date format is strict MM/YYYY
-- CVV must be exactly 3 or 4 digits
-
-## Trade-offs
-
-### Simplicity Over Features
-- Chose simple in-memory storage over database for faster development and testing
-- No authentication/authorization implemented (not required)
-- Minimal error handling to focus on core functionality
-
-### Synchronous Processing
-- Payment processing is synchronous - no queue or async processing implemented
-- Suitable for the initial phase but may need async processing for scale
-
+- Payment IDs use GUID format
+- Only last 4 digits of card number returned (PCI compliance)
+- Amount always in minor currency units (e.g., 100 = $1.00 USD)
+- Bank simulator at `http://localhost:8080`
+- Bank errors (503, 400) result in "Rejected" status
+- Currency validation is case-insensitive
+- Expiry date format: MM/YYYY, must be in future
