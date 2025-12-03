@@ -10,7 +10,7 @@ public class PaymentRequest
     public required string CardNumber { get; set; }
 
     [Required(ErrorMessage = "Expiry date is required.")]
-    [RegularExpression(@"^(0[1-9]|1[0-2])\/\d{4}$", ErrorMessage = "Expiry date must be in MM/YYYY format.")]
+    [RegularExpression(@"^(0?[1-9]|1[0-2])\/\d{4}$", ErrorMessage = "Expiry date must be in MM/YYYY format.")]
     [FutureExpiryDate]
     public required string ExpiryDate { get; set; }
 

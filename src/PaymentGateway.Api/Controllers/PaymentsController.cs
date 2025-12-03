@@ -19,6 +19,12 @@ public class PaymentsController : Controller
     [HttpPost]
     public async Task<ActionResult<PaymentResponse>> ProcessPaymentAsync([FromBody] PaymentRequest request)
     {
+        // Check ModelState validation - if invalid, return BadRequest before calling bank 
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
         var response = await _paymentService.ProcessPaymentAsync(request);
         
         if (response.Status == "Rejected")

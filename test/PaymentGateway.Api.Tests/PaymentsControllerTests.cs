@@ -290,6 +290,38 @@ public class PaymentsControllerTests
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    [Fact]
+    public async Task ProcessPayment_InvalidInput_DoesNotCallBank()
+    {
+        // Arrange - This test verifies that the bank is NOT called when validation fails
+        var mockBankClient = new Mock<IBankSimulatorClient>();
+        
+        var webApplicationFactory = new WebApplicationFactory<PaymentsController>();
+        var client = webApplicationFactory.WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services =>
+            {
+                services.AddScoped<IBankSimulatorClient>(sp => mockBankClient.Object);
+            }))
+            .CreateClient();
+
+        var request = new PaymentRequest
+        {
+            CardNumber = "123", // Invalid - too short
+            ExpiryDate = "12/2025",
+            Currency = "USD",
+            Amount = 100,
+            Cvv = "123"
+        };
+
+        // Act
+        var response = await client.PostAsJsonAsync("/api/Payments", request);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        // Verify that the bank client was NEVER called (requirement: don't call bank if input is invalid)
+        mockBankClient.Verify(x => x.ProcessPaymentAsync(It.IsAny<BankPaymentRequest>()), Times.Never);
+    }
+
     #endregion
 
     #region POST /api/payments - Bank Error Tests
